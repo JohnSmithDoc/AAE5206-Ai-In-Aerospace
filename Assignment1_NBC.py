@@ -11,8 +11,6 @@ class NBC:
         self.class_priors = None
         # 用于存放3个类条件下的4个特征（连续量）的概率分布，所以一共有12个分布，每一个类条件下有4个独立的分布，均假设为高斯分布
         self.pdf_params = defaultdict(lambda: defaultdict(dict))
-        # 类去重集中在一个数组中
-        self.classes = None
 
     # 计算类的先验概率
     def calculate_classes_priors(self, y):
