@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.datasets import load_iris
 from collections import defaultdict
-
+import warnings
 
 class NBC:
     def __init__(self, feature_types, num_classes):
@@ -32,6 +32,11 @@ class NBC:
         shape = X.shape
         # 获取特征的列数
         columns = shape[1]
+        # 如果比初始化时得到的feature_type的特征多，则告警，这要求初始化时feature_type一定要初始化合理
+        if columns > len(self.feature_types):
+            warnings.warn("features are out of limit!!!", RuntimeWarning)
+            columns = len(self.feature_types)
+
         for c_index in range(self.num_classes):
             # 找到 类分别为0 1 2 的对应的X的行，临时构成一个多维数组
             matching_rows = X[y == c_index]
