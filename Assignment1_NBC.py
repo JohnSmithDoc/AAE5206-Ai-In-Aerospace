@@ -24,8 +24,8 @@ class NBC:
             mask = (np_y == c)  # 此处得到一个bool数组，通过sum可以得到个数
             self.class_priors[c] = np.sum(mask) / N
 
-        # 查看下类的先验概率计算结果
-        print('classes priors probabilities are:', self.class_priors)
+        # debug 查看下类的先验概率计算结果
+        # print('classes priors probabilities are:', self.class_priors)
 
     # 计算3个条件下4个特征(相互独立)的概率密度函数的参数，一共12个
     def calculate_pdfs_params(self, X, y):
@@ -35,7 +35,9 @@ class NBC:
         for c_index in range(self.num_classes):
             # 找到 类分别为0 1 2 的对应的X的行，临时构成一个多维数组
             matching_rows = X[y == c_index]
-            print('matching rows:', matching_rows)
+
+            # debug
+            # print('matching rows:', matching_rows)
 
             for f_index in range(columns):
                 # 再提取指定列的数据
@@ -55,7 +57,7 @@ class NBC:
                 }
 
         # debug
-        print('pdfs are ', self.pdf_params)
+        # print('pdfs are ', self.pdf_params)
 
     # 计算此新样本特征已观测到的条件下的类别的后验概率
     def calculate_posterior(self, x):
@@ -127,7 +129,7 @@ if __name__ == "__main__":
     train_accuracy = np.mean(train_yhat == ytrain)
     print('ytrain is', ytrain)
     print('train_yhat is', train_yhat)
-    print("Training Accuracy is %.6f" % train_accuracy)
+    print(f"Training accuracy is: {train_accuracy:.6f}, Training error is: {(1-train_accuracy):.6f}")
 
 
     # 测试精度
@@ -135,7 +137,7 @@ if __name__ == "__main__":
     test_accuracy = np.mean(yhat == ytest)
     print('yhat is', yhat)
     print('ytest is', ytest)
-    print(f"Testing accuracy: {test_accuracy}")
+    print(f"Testing accuracy: {test_accuracy:.6f}, Testing error is: {(1-test_accuracy):.6f}")
 
 
 
