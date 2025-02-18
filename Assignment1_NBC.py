@@ -3,6 +3,7 @@ from sklearn.datasets import load_iris
 from collections import defaultdict
 import warnings
 
+
 class NBC:
     def __init__(self, feature_types, num_classes):
         self.feature_types = feature_types
@@ -134,18 +135,11 @@ if __name__ == "__main__":
     train_accuracy = np.mean(train_yhat == ytrain)
     print('ytrain is', ytrain)
     print('train_yhat is', train_yhat)
-    print(f"Training accuracy is: {train_accuracy:.6f}, Training error is: {(1-train_accuracy):.6f}")
-
+    print(f"Training accuracy is: {train_accuracy:.6f}, Training error is: {(1 - train_accuracy):.6f}")
 
     # 测试精度
     yhat = nbc.predict(Xtest)
     test_accuracy = np.mean(yhat == ytest)
     print('yhat is', yhat)
     print('ytest is', ytest)
-    print(f"Testing accuracy: {test_accuracy:.6f}, Testing error is: {(1-test_accuracy):.6f}")
-
-
-
-
-
-
+    print(f"Testing accuracy: {test_accuracy:.6f}, Testing error is: {(1 - test_accuracy):.6f}")
