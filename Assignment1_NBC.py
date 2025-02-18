@@ -111,7 +111,7 @@ class NBC:
 
 ################################
 if __name__ == "__main__":
-    # 加载数据
+    # 加载数据,ref:https://blog.csdn.net/qq_46626684/article/details/123820726
     iris = load_iris()
     X, y = iris['data'], iris['target']
 
