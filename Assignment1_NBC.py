@@ -1,7 +1,7 @@
-import numpy as np
-from sklearn.datasets import load_iris
-from collections import defaultdict
 import warnings
+import numpy as np
+from collections import defaultdict
+from sklearn.datasets import load_iris
 
 
 class NBC:
