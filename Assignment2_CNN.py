@@ -4,52 +4,48 @@ import torchvision
 import torchvision.transforms as transforms
 
 
-# Fully connected neural network with one hidden layer
-class NeuralNet(nn.Module):
-    def __init__(self):
-        super(NeuralNet, self).__init__()
-        self.fc1 = nn.Linear(784, 500)
-        self.relu = nn.ReLU()
-        self.fc2 = nn.Linear(500, 10)
-        self.type = 'MLP'
-
-    def forward(self, x):
-        x = self.fc1(x)
-        x = self.relu(x)
-        out = self.fc2(x)
-        return out
-
-
 class ConvNet(nn.Module):
     def __init__(self, num_classes=10):
         super(ConvNet, self).__init__()
-        # 第一层:输入 1*28*28
         self.layer1 = nn.Sequential(
-            # 用了16个kernel，size为5*5，stride为1，填充为2，feature map1 size : (M-K + 2pd)/s + 1 = (28-5+4)/1 + 1 = 28
-            # 所以输出为16*28*28，注意Conv2d意味着 feature map是个二维的
-            nn.Conv2d(1, 16, kernel_size=5, stride=1, padding=2),
-            nn.BatchNorm2d(16),
-            nn.ReLU(),
-            # 16 * 28 * 28 池化，得到 (28-2+0)/2 +1 = 14，此时得到16 *14*14
-            nn.MaxPool2d(kernel_size=2, stride=2))
-        self.layer2 = nn.Sequential(
-            # 16* 14*14,用了32个kernel，size为5*5，stride为1，填充为2，feature map2 size : (M-K + 2pd)/s + 1 = (14-5+4)/1+1=14
-            # 故这里还是会得到32 *14*14
-            nn.Conv2d(16, 32, kernel_size=5, stride=1, padding=2),
+            # (M - K + 2pd) / s + 1 = (28 - 12 + 0) / 2 + 1 = 9
+            # 32 * (9*9)
+            nn.Conv2d(1, 32, kernel_size=12, stride=2),
             nn.BatchNorm2d(32),
+            nn.ReLU())
+            # (M - K + 2pd) / s + 1 = (9-2 + 0)/2 + 1 = 4
+            # 所以输出是 32 * （4*4）
+            # nn.MaxPool2d(kernel_size=2, stride=2))
+        self.layer2 = nn.Sequential(
+            # 因为上一次池化输出后，output是 32 * （4*4）所以我们需要使用zero-padding
+            # nn.Conv2d(32, 64, kernel_size=5, stride=1, padding=1, padding_mode="zeros"),
+            nn.Conv2d(32, 64, kernel_size=5, stride=1),
+            nn.BatchNorm2d(64),
             nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2),
+            nn.ReLU())
 
-            # 32* 14*14池化，得到 (14-2)/2+1=7
-            # 32*7*7
-            nn.MaxPool2d(kernel_size=2, stride=2))
-        self.fc = nn.Linear(7 * 7 * 32, num_classes)
+        self.fc1 = None
+        self.fc2 = None
+        self.num_classes = num_classes
         self.type = 'CNN'
 
     def forward(self, x):
         out = self.layer1(x)
         out = self.layer2(out)
         out = out.reshape(out.size(0), -1)
-        out = self.fc(out)
+
+        # 每次forward只初始化一次
+        if self.fc1 is None:
+            self.fc1 = nn.Linear(out.size(1), 512)
+            print(out.size(1))
+        out = self.fc1(out)
+
+        # 每次forward只初始化一次
+        if self.fc2 is None:
+            self.fc2 = nn.Linear(512, self.num_classes)
+        out = self.fc2(out)
+
         return out
 
 
@@ -98,6 +94,13 @@ def train(train_loader, model, criterion, optimizer, num_epochs):
                 print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
                       .format(epoch + 1, num_epochs, step + 1, total_step, loss.item()))
 
+                if loss.item() < 0.005:
+                    # 保存模型及其参数，退出
+                    torch.save(model.state_dict(), 'model.pth')
+                    break
+
+    # 运行完成的话，保存模型及其参数，退出
+    torch.save(model.state_dict(), 'model.pth')
 
 
 def test(test_loader, model):
@@ -116,23 +119,25 @@ def test(test_loader, model):
         print('Accuracy of the network on the 10000 test images: {} %'.format(100 * correct / total))
 
 
-
 if __name__ == '__main__':
     ### step 1: prepare dataset and create dataloader
     train_loader, test_loader = create_dataloader()
 
     ### step 2: instantiate neural network and design model
-    # model = NeuralNet()
     model = ConvNet()
 
     # Loss and optimizer
+    # CrossEntropyLoss自动包含了softmax
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 
     ### step 3: train the model
     train(train_loader, model, criterion, optimizer, num_epochs=5)
 
     ### step 4: test the model
+    # 加载模型参数
+    model.load_state_dict(torch.load('model.pth'))
+    model.eval()  # 切换到评估模式
     test(test_loader, model)
 
 
