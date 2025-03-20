@@ -85,6 +85,19 @@ def create_dataloader():
     return train_loader, test_loader
 
 
+def test_in_training(test_loader, model):
+    # Test the model
+    with torch.no_grad():
+        correct = 0
+        total = 0
+        for images, labels in test_loader:
+            outputs = model(images)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+        print('Accuracy of the network on the training images: {} %'.format(100 * correct / total))
+
 def train(train_loader, model, criterion, optimizer, num_epochs, save_param: bool = True):
     # Train the model
     total_step = len(train_loader)
@@ -105,6 +118,7 @@ def train(train_loader, model, criterion, optimizer, num_epochs, save_param: boo
             optimizer.step()
 
             if (step + 1) % 100 == 0:
+                test_in_training(train_loader, model)
                 print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
                       .format(epoch + 1, num_epochs, step + 1, total_step, loss.item()))
 
@@ -117,7 +131,6 @@ def train(train_loader, model, criterion, optimizer, num_epochs, save_param: boo
     # 训练完成的话，如果需要保存模型及其参数，则保存
     if save_param:
         torch.save(model_params, 'model.pth')
-
 
 def test(test_loader, model):
     # Test the model
@@ -171,11 +184,12 @@ if __name__ == '__main__':
     # 同时训练并紧接着评估
     if training and testing:
         ### step 3: train the model
-        train(train_loader, model, criterion, optimizer, num_epochs=50)
+        train(train_loader, model, criterion, optimizer, num_epochs=20)
         ### step 4: 加载刚刚训练好的最好的模型参数，并test the model
         model.load_state_dict(torch.load('model.pth'))
         model.eval()  # 切换到评估模式
         test(test_loader, model)
+
     # 不训练，只评估，这时我们加载之前保存的最新的模型文件进行测试
     elif not training and testing:
         # 加载保存的使loss最小的模型参数，然后测试
