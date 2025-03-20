@@ -2,6 +2,11 @@ import torch
 import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
+import matplotlib.pyplot as plt
+
+# temp solution
+import os
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 
 class ConvNet(nn.Module):
@@ -13,18 +18,22 @@ class ConvNet(nn.Module):
             nn.Conv2d(1, 32, kernel_size=12, stride=2),
             nn.BatchNorm2d(32),
             nn.ReLU())
-            # (M - K + 2pd) / s + 1 = (9-2 + 0)/2 + 1 = 4
-            # 所以输出是 32 * （4*4）
-            # nn.MaxPool2d(kernel_size=2, stride=2))
+        # (M - K + 2pd) / s + 1 = (9-2 + 0)/2 + 1 = 4
+        # 所以输出是 32 * （4*4）
+        # nn.MaxPool2d(kernel_size=2, stride=2))
         self.layer2 = nn.Sequential(
-            # 因为上一次池化输出后，output是 32 * （4*4）所以我们需要使用zero-padding
+            # 如果上一次进行了池化输出，输出后，output是 32 * （4*4）此时我们需要使用zero-padding，如果上一次不是池化输出，就没必要padding了
             # nn.Conv2d(32, 64, kernel_size=5, stride=1, padding=1, padding_mode="zeros"),
+
+            # stride为1，暂不padding
             nn.Conv2d(32, 64, kernel_size=5, stride=1),
             nn.BatchNorm2d(64),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2),
+            # 按照要求，和全连接层连接之前再经过一层Relu
             nn.ReLU())
 
+        # 不直接计算全连层从卷积层最后得到的输入个数，不然每次变动都要认为计算，所以我们直接在前向传播时动态计算
         self.fc1 = None
         self.fc2 = None
         self.num_classes = num_classes
@@ -73,13 +82,15 @@ def create_dataloader():
     return train_loader, test_loader
 
 
-def train(train_loader, model, criterion, optimizer, num_epochs):
+def train(train_loader, model, criterion, optimizer, num_epochs, save_param: bool = True):
     # Train the model
     total_step = len(train_loader)
+
+    # 初始的loss设为一个较大的值
+    last_loss = 100
+
     for epoch in range(num_epochs):
         for step, (images, labels) in enumerate(train_loader):
-            if model.type == 'MLP':
-                images = images.reshape(-1, 28 * 28)
 
             # Forward pass
             outputs = model(images)
@@ -94,13 +105,15 @@ def train(train_loader, model, criterion, optimizer, num_epochs):
                 print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
                       .format(epoch + 1, num_epochs, step + 1, total_step, loss.item()))
 
-                if loss.item() < 0.005:
-                    # 保存模型及其参数，退出
-                    torch.save(model.state_dict(), 'model.pth')
-                    break
+                # 每100次同步检查一下，loss变小就保存一下此次的模型参数
+                if loss.item() < last_loss:
+                    model_params = model.state_dict()
 
-    # 运行完成的话，保存模型及其参数，退出
-    torch.save(model.state_dict(), 'model.pth')
+                last_loss = loss.item()
+
+    # 训练完成的话，如果需要保存模型及其参数，则保存
+    if save_param:
+        torch.save(model_params, 'model.pth')
 
 
 def test(test_loader, model):
@@ -109,14 +122,31 @@ def test(test_loader, model):
         correct = 0
         total = 0
         for images, labels in test_loader:
-            if model.type == 'MLP':
-                images = images.reshape(-1, 28 * 28)
             outputs = model(images)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
         print('Accuracy of the network on the 10000 test images: {} %'.format(100 * correct / total))
+
+
+# 可视化卷积核
+def visualize_kernels(kernels):
+    # 正常应该是32
+    num_kernels = kernels.shape[0]
+    # 正常应该只一层
+    num_channels = kernels.shape[1]
+    size_x = kernels.shape[2]
+    size_y = kernels.shape[3]
+
+    # 穿件4*8的子图网格，每个子图12*12，实际应当会画出32个
+    fig, axes = plt.subplots(4, 8, figsize=(size_x, size_y))
+    for i in range(num_kernels):
+        for j in range(num_channels):
+            ax = axes[i // 8, i % 8]
+            ax.imshow(kernels[i, 0].cpu().numpy(), cmap='gray')
+            ax.axis('off')
+    plt.show()
 
 
 if __name__ == '__main__':
@@ -131,16 +161,34 @@ if __name__ == '__main__':
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 
-    ### step 3: train the model
-    train(train_loader, model, criterion, optimizer, num_epochs=5)
+    # 临时切换要做什么
+    training: bool = True
+    testing: bool = True
 
-    ### step 4: test the model
-    # 加载模型参数
-    model.load_state_dict(torch.load('model.pth'))
-    model.eval()  # 切换到评估模式
-    test(test_loader, model)
+    # 同时训练并紧接着评估
+    if training and testing:
+        ### step 3: train the model
+        train(train_loader, model, criterion, optimizer, num_epochs=50)
+        ### step 4: 加载刚刚训练好的最好的模型参数，并test the model
+        model.load_state_dict(torch.load('model.pth'))
+        model.eval()  # 切换到评估模式
+        test(test_loader, model)
+    # 不训练，只评估，这时我们加载之前保存的最新的模型文件进行测试
+    elif not training and testing:
+        # 加载保存的使loss最小的模型参数，然后测试
+        # 因为使用了动态计算神经元个数，所以这里需要通过一次前向传播来初始化全连接层，这样才能正常加载对应的模型参数，临时先使用一次训练来代替，但不保存训练参数
+        train(train_loader, model, criterion, optimizer, num_epochs=1, save_param=False)
+        model.load_state_dict(torch.load('model.pth'))
+        model.eval()  # 切换到评估模式
+        test(test_loader, model)
 
+    else:
+        print("do nothing")
 
-
-
-
+    # 获取第一个卷积层的卷积核
+    conv1 = model.layer1[0]  # 访问 nn.Sequential 容器中的第一个卷积层
+    kernels = conv1.weight.data
+    # 检查卷积核的形状
+    print(f"Conv1 kernels shape: {kernels.shape}")
+    # 可视化第一个层的卷积核
+    visualize_kernels(kernels)
