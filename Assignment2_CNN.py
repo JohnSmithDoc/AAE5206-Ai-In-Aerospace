@@ -1,3 +1,6 @@
+#   Student Number: 24066688g
+#   Student   Name: Yang Guodong
+
 import torch
 import torch.nn as nn
 import torchvision
